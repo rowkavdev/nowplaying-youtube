@@ -1,0 +1,10 @@
+{
+  "name": "nowplaying-youtube",
+  "private": true,
+  "type": "module",
+  "description": "Browser extension that sends what YouTube is playing to the nowplaying app",
+  "license": "AGPL-3.0-only",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  }
+}
