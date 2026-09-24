@@ -67,3 +67,18 @@ test("events the extension builds only use keys the app's bridge accepts", () =>
   assert.match(e.videoId, /^[A-Za-z0-9_-]{11}$/);
   assert.ok(["playing", "paused", "stopped"].includes(e.state));
 });
+
+test("pairing check tells a working code from a wrong one (#136)", async () => {
+  const ctx = vm.createContext({ URL, JSON });
+  vm.runInContext(readFileSync(new URL("pairing.js", dir), "utf8"), ctx);
+  const { checkPairing } = ctx.NowPlayingPairing;
+  const sent = [];
+  const reply = (status) => async (url, init) => { sent.push([url, init]); return { status }; };
+  assert.equal(await checkPairing({ token: "x".repeat(40), port: 47832, fetchImpl: reply(204) }), "paired");
+  assert.equal(sent[0][0], "http://127.0.0.1:47832/bridge/youtube");
+  assert.equal(sent[0][1].headers.Authorization, `Bearer ${"x".repeat(40)}`);
+  assert.deepEqual(JSON.parse(sent[0][1].body), { tabId: "pairing-check", state: "stopped" });
+  assert.equal(await checkPairing({ token: "x".repeat(40), fetchImpl: reply(401) }), "wrong_code");
+  assert.equal(await checkPairing({ token: "x".repeat(40), fetchImpl: reply(404) }), "old_app");
+  assert.equal(await checkPairing({ token: "x".repeat(40), fetchImpl: async () => { throw new TypeError("refused"); } }), "app_not_running");
+});
