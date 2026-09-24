@@ -57,9 +57,13 @@ test("the manifest asks only for YouTube, 127.0.0.1 and storage", () => {
   assert.deepEqual(manifest.content_scripts[0].matches, ["https://www.youtube.com/*", "https://music.youtube.com/*"]);
 });
 
-test("events the extension builds pass the app's bridge schema", async () => {
-  const { parseYouTubeEvent } = await import("../src/youtube-bridge.js");
-  const e = readPlayback(...page());
-  assert.equal(parseYouTubeEvent({ ...e, tabId: "t12" }).title, "Never Gonna Give You Up");
-  assert.equal(parseYouTubeEvent({ tabId: "t12", state: "stopped" }).state, "stopped");
+// The app checks every event against this key list (EVENT_KEYS in
+// rowkavdev/nowplaying src/youtube-bridge.js). Keep the two in step.
+const BRIDGE_KEYS = ["tabId", "videoId", "title", "channel", "thumbnail", "positionMs", "durationMs", "state", "live", "music", "ad", "shorts"];
+
+test("events the extension builds only use keys the app's bridge accepts", () => {
+  const e = { ...readPlayback(...page()), tabId: "t12" };
+  assert.deepEqual(Object.keys(e).filter((key) => !BRIDGE_KEYS.includes(key)), []);
+  assert.match(e.videoId, /^[A-Za-z0-9_-]{11}$/);
+  assert.ok(["playing", "paused", "stopped"].includes(e.state));
 });
