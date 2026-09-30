@@ -1,25 +1,37 @@
 const form = document.getElementById("pair");
 const status = document.getElementById("status");
 
+let generation = 0;
+let writes = Promise.resolve();
+function write(operation) {
+  const result = writes.then(operation, operation);
+  writes = result.catch(() => {});
+  return result;
+}
+
 function show(text, ok) {
   status.textContent = text;
   status.className = ok ? "ok" : "";
 }
 
 chrome.storage.local.get(["token", "port"]).then(({ token, port }) => {
+  if (generation !== 0) return;
   if (port) form.port.value = port;
   show(token ? "Paired." : "Not paired yet.", Boolean(token));
 });
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
+  const own = ++generation;
   const token = form.token.value.trim();
   const port = Number(form.port.value) || 47832;
   if (token.length < 32) return show("That code is too short. Copy it again from the NowPlaying settings page.", false);
   show("Checking…", false);
   const result = await globalThis.NowPlayingPairing.checkPairing({ token, port });
+  if (own !== generation) return;
   if (result === "wrong_code") return show("NowPlaying didn't accept that code. Copy it again from the settings page; it changes if you reset it.", false);
-  await chrome.storage.local.set({ token, port });
+  await write(async () => { if (own === generation) await chrome.storage.local.set({ token, port }); });
+  if (own !== generation) return;
   form.token.value = "";
   if (result === "paired") return show("Paired.", true);
   if (result === "app_not_running") return show(`Saved, but NowPlaying isn't answering on port ${port}. Start it and this will work.`, false);
@@ -28,6 +40,8 @@ form.addEventListener("submit", async (event) => {
 });
 
 document.getElementById("forget").addEventListener("click", async () => {
-  await chrome.storage.local.remove(["token"]);
+  const own = ++generation;
+  await write(() => chrome.storage.local.remove(["token"]));
+  if (own !== generation) return;
   show("Unpaired. Nothing is sent now.", false);
 });
