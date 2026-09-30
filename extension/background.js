@@ -8,7 +8,16 @@ chrome.runtime.onMessage.addListener((message, sender) => {
 
 chrome.tabs?.onRemoved?.addListener((tabId) => forward({ tabId: `t${tabId}`, state: "stopped" }));
 
-async function forward(event) {
+const tabQueues = new Map();
+function forward(event) {
+  const previous = tabQueues.get(event.tabId) ?? Promise.resolve();
+  const next = previous.catch(() => {}).then(() => send(event));
+  tabQueues.set(event.tabId, next);
+  next.finally(() => { if (tabQueues.get(event.tabId) === next) tabQueues.delete(event.tabId); }).catch(() => {});
+  return next;
+}
+
+async function send(event) {
   const { token, port } = await chrome.storage.local.get(["token", "port"]);
   if (!token) return;
   try {

@@ -122,3 +122,19 @@ test('Unpair also waits out an already pending token storage write (#13)', async
   const forgetting = handlers.forget(); release(); await Promise.all([saving, forgetting]);
   assert.equal(stored, null); assert.equal(status.textContent, 'Unpaired. Nothing is sent now.');
 });
+
+test('per-tab forwarding keeps a late old play ahead of close, never revives after stop (#14)', async () => {
+  let message, removed;
+  const reads = [], sends = [];
+  vm.runInNewContext(readFileSync(new URL('background.js', dir), 'utf8'), {
+    chrome: { runtime: { onMessage: { addListener: fn => { message = fn; } } }, tabs: { onRemoved: { addListener: fn => { removed = fn; } } }, storage: { local: { get: () => new Promise(resolve => reads.push(resolve)) } } },
+    fetch: async (_url, options) => { sends.push(JSON.parse(options.body)); return { ok: true }; }, console,
+  });
+  message({ type: 'nowplaying-youtube', event: { state: 'playing' } }, { tab: { id: 7 } }); removed(7);
+  await new Promise(resolve => setImmediate(resolve));
+  if (reads.length === 2) { reads[1]({ token: 't' }); await new Promise(resolve => setImmediate(resolve)); }
+  reads[0]({ token: 't' }); await new Promise(resolve => setImmediate(resolve));
+  if (reads.length === 2) reads[1]({ token: 't' });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(sends.at(-1).state, 'stopped');
+});
