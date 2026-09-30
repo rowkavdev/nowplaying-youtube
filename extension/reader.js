@@ -29,6 +29,7 @@
     const video = doc.querySelector(SELECTORS.video);
     const videoId = videoIdFrom(location);
     if (!video || !videoId) return null;
+    if (video.ended) return { state: "stopped" };
     const player = doc.querySelector(SELECTORS.player);
     if (player?.classList?.contains(SELECTORS.adClass)) return { skip: "ad" };
     const metadata = mediaSession?.metadata ?? null;
@@ -42,7 +43,7 @@
       thumbnail: largestArtwork(metadata),
       positionMs: live ? null : Math.round(video.currentTime * 1000),
       durationMs: live ? null : Math.round(video.duration * 1000),
-      state: video.paused || video.ended ? "paused" : "playing",
+      state: video.paused ? "paused" : "playing",
       live,
       music: location.hostname === "music.youtube.com",
     };

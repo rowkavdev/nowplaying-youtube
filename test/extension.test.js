@@ -138,3 +138,10 @@ test('per-tab forwarding keeps a late old play ahead of close, never revives aft
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(sends.at(-1).state, 'stopped');
 });
+
+test('naturally ended video reports stopped, explicit pause stays paused (#15)', () => {
+  const args = page({ paused: true });
+  args[0].querySelector('video').ended = true;
+  assert.equal(readPlayback(...args).state, 'stopped');
+  assert.equal(readPlayback(...page({ paused: true })).state, 'paused');
+});
