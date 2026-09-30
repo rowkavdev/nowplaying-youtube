@@ -145,3 +145,15 @@ test('naturally ended video reports stopped, explicit pause stays paused (#15)',
   assert.equal(readPlayback(...args).state, 'stopped');
   assert.equal(readPlayback(...page({ paused: true })).state, 'paused');
 });
+
+test('open paused tab sends heartbeat every ten seconds (#12)', () => {
+  const sent = []; let tick;
+  vm.runInNewContext(readFileSync(new URL('content.js', dir), 'utf8'), {
+    NowPlayingReader: { readPlayback: () => ({ state: 'paused', videoId: 'dQw4w9WgXcQ', title: 'Paused' }) },
+    document: { addEventListener() {} }, location: {}, navigator: { mediaSession: {} }, window: { addEventListener() {} },
+    chrome: { runtime: { sendMessage: event => sent.push(event) } }, setInterval: fn => { tick = fn; },
+  });
+  for (let i = 0; i < 4; i++) tick();
+  assert.equal(sent.length, 5);
+  assert.ok(sent.every(message => message.event.state === 'paused'));
+});
