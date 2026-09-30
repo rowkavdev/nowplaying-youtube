@@ -97,3 +97,28 @@ test('background warns on bridge rejection without logging token or playback', a
   assert.deepEqual(warnings, [['NowPlaying bridge rejected playback event:', 400]]);
   assert.equal(JSON.stringify(warnings).includes('private'), false);
 });
+
+test('Unpair wins a pending Save/check and serialized storage writes (#13)', async () => {
+  const handlers = {}; let finish; const checked = new Promise(resolve => { finish = resolve; });
+  let stored = null;
+  const form = { token: { value: 't'.repeat(40) }, port: { value: '47832' }, addEventListener: (kind, fn) => { handlers[kind] = fn; } };
+  const status = {};
+  const context = { document: { getElementById: id => id === 'pair' ? form : id === 'status' ? status : { addEventListener: (_kind, fn) => { handlers.forget = fn; } } }, chrome: { storage: { local: { get: async () => ({}), set: async value => { stored = value; }, remove: async () => { stored = null; } } } }, NowPlayingPairing: { checkPairing: () => checked } };
+  vm.runInNewContext(readFileSync(new URL('options.js', dir), 'utf8'), context);
+  await new Promise(resolve => setImmediate(resolve));
+  const saving = handlers.submit({ preventDefault() {} });
+  await handlers.forget(); finish('paired'); await saving;
+  assert.equal(stored, null);
+  assert.equal(status.textContent, 'Unpaired. Nothing is sent now.');
+});
+
+test('Unpair also waits out an already pending token storage write (#13)', async () => {
+  const handlers = {}; let release, began; const writing = new Promise(resolve => { began = resolve; }); const gate = new Promise(resolve => { release = resolve; });
+  let stored;
+  const form = { token: { value: 't'.repeat(40) }, port: { value: '47832' }, addEventListener: (kind, fn) => { handlers[kind] = fn; } }, status = {};
+  vm.runInNewContext(readFileSync(new URL('options.js', dir), 'utf8'), { document: { getElementById: id => id === 'pair' ? form : id === 'status' ? status : { addEventListener: (_kind, fn) => { handlers.forget = fn; } } }, chrome: { storage: { local: { get: async () => ({}), set: async value => { began(); await gate; stored = value; }, remove: async () => { stored = null; } } } }, NowPlayingPairing: { checkPairing: async () => 'paired' } });
+  await new Promise(resolve => setImmediate(resolve));
+  const saving = handlers.submit({ preventDefault() {} }); await writing;
+  const forgetting = handlers.forget(); release(); await Promise.all([saving, forgetting]);
+  assert.equal(stored, null); assert.equal(status.textContent, 'Unpaired. Nothing is sent now.');
+});
