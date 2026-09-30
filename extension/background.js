@@ -12,11 +12,12 @@ async function forward(event) {
   const { token, port } = await chrome.storage.local.get(["token", "port"]);
   if (!token) return;
   try {
-    await fetch(`http://127.0.0.1:${Number(port) || 47832}/bridge/youtube`, {
+    const response = await fetch(`http://127.0.0.1:${Number(port) || 47832}/bridge/youtube`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify(event),
     });
+    if (!response.ok) console.warn("NowPlaying bridge rejected playback event:", response.status);
   } catch {
     // App not running: nothing to do, the next tick tries again.
   }
