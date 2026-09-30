@@ -82,3 +82,18 @@ test("pairing check tells a working code from a wrong one (#136)", async () => {
   assert.equal(await checkPairing({ token: "x".repeat(40), fetchImpl: reply(404) }), "old_app");
   assert.equal(await checkPairing({ token: "x".repeat(40), fetchImpl: async () => { throw new TypeError("refused"); } }), "app_not_running");
 });
+
+test('background warns on bridge rejection without logging token or playback', async () => {
+  const warnings = [];
+  let listener;
+  const context = {
+    chrome: { runtime: { onMessage: { addListener(fn) { listener = fn; } } }, storage: { local: { get: async () => ({ token: 'private-pairing-token', port: 47832 }) } } },
+    fetch: async () => ({ ok: false, status: 400 }),
+    console: { warn: (...args) => warnings.push(args) },
+  };
+  vm.runInNewContext(readFileSync(new URL('../extension/background.js', import.meta.url), 'utf8'), context);
+  listener({ type: 'nowplaying-youtube', event: { state: 'playing', title: 'Private title' } }, { tab: { id: 1 } });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(warnings, [['NowPlaying bridge rejected playback event:', 400]]);
+  assert.equal(JSON.stringify(warnings).includes('private'), false);
+});
