@@ -16,8 +16,7 @@
       last = "stopped";
       return;
     }
-    // A paused video is reported once, not every tick.
-    if (found.state === "paused" && last === "paused") return;
+    // Paused tabs need the same heartbeat to stay alive at the bridge.
     send(found);
     last = found.state;
   }
