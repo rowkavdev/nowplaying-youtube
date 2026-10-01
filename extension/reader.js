@@ -23,6 +23,11 @@
     return list.find((item) => typeof item.src === "string" && item.src.startsWith("https://"))?.src ?? null;
   }
 
+  function playbackMs(seconds, live) {
+    if (live || !Number.isFinite(seconds)) return null;
+    return Math.max(0, Math.round(seconds * 1000));
+  }
+
   // Returns the event to send, or null when there's nothing to report.
   function readPlayback(doc, location, mediaSession) {
     if (location.pathname.startsWith("/shorts/")) return { skip: "shorts" };
@@ -35,14 +40,14 @@
     const metadata = mediaSession?.metadata ?? null;
     const title = (metadata?.title || "").trim();
     if (!title) return null;
-    const live = Boolean(doc.querySelector(SELECTORS.liveBadge)?.offsetParent) || !Number.isFinite(video.duration);
+    const live = Boolean(doc.querySelector(SELECTORS.liveBadge)?.offsetParent) || video.duration === Infinity;
     return {
       videoId,
       title: title.slice(0, 300),
       channel: (metadata?.artist || "").trim().slice(0, 200) || null,
       thumbnail: largestArtwork(metadata),
-      positionMs: live ? null : Math.round(video.currentTime * 1000),
-      durationMs: live ? null : Math.round(video.duration * 1000),
+      positionMs: playbackMs(video.currentTime, live),
+      durationMs: playbackMs(video.duration, live),
       state: video.paused ? "paused" : "playing",
       live,
       music: location.hostname === "music.youtube.com",

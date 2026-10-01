@@ -157,3 +157,12 @@ test('open paused tab sends heartbeat every ten seconds (#12)', () => {
   assert.equal(sent.length, 5);
   assert.ok(sent.every(message => message.event.state === 'paused'));
 });
+
+test('unloaded media metadata is not reported as a live stream', () => {
+  const event = readPlayback(...page({ duration: NaN, currentTime: NaN }));
+  assert.equal(event.live, false);
+  assert.equal(event.durationMs, null);
+  assert.equal(event.positionMs, null);
+  const live = readPlayback(...page({ duration: Infinity }));
+  assert.equal(live.live, true);
+});
