@@ -216,3 +216,13 @@ test("the manifest's icons exist as PNGs at the declared sizes", () => {
   }
   for (const path of Object.values(manifest.action.default_icon)) assert.ok(Object.values(manifest.icons).includes(path), path);
 });
+
+test("PRIVACY.md names every field the extension sends", () => {
+  const privacy = readFileSync(new URL("../PRIVACY.md", import.meta.url), "utf8").toLowerCase();
+  const sent = readPlayback(...page());
+  const words = { videoId: "video id", title: "title", channel: "channel", thumbnail: "thumbnail", positionMs: "position", durationMs: "duration", state: "paused", live: "live", music: "youtube music" };
+  assert.deepEqual(Object.keys(sent).sort(), Object.keys(words).sort(), "a new sent field needs a line in PRIVACY.md and here");
+  for (const [field, phrase] of Object.entries(words)) assert.ok(privacy.includes(phrase), `${field}: PRIVACY.md should mention "${phrase}"`);
+  const manifest = JSON.parse(readFileSync(new URL("manifest.json", dir), "utf8"));
+  for (const permission of [...manifest.permissions, ...manifest.host_permissions]) assert.ok(privacy.includes(permission), permission);
+});

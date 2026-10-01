@@ -2,7 +2,7 @@
 
 Browser extension that tells the [nowplaying](https://github.com/rowkavdev/nowplaying) app what you're watching on YouTube or YouTube Music, so it can show on your card and in Discord.
 
-It only reports the video that is playing in a tab. It never sends page visits, searches, recommendations or history. Ads and Shorts are skipped.
+It only reports the video that is playing in a tab. It never sends page visits, searches, recommendations or history. Ads and Shorts are skipped. See [PRIVACY.md](PRIVACY.md) for exactly what is sent.
 
 ## Install (load unpacked)
 
