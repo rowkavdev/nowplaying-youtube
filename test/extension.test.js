@@ -204,3 +204,15 @@ test('pairing check times out when the app never answers (#27)', async () => {
   assert.equal(await checking, 'app_not_running');
   assert.deepEqual(cleared, [1]);
 });
+
+test("the manifest's icons exist as PNGs at the declared sizes", () => {
+  const manifest = JSON.parse(readFileSync(new URL("manifest.json", dir), "utf8"));
+  assert.deepEqual(Object.keys(manifest.icons).sort(), ["128", "16", "32", "48"]);
+  for (const [size, path] of Object.entries(manifest.icons)) {
+    const png = readFileSync(new URL(path, dir));
+    assert.equal(png.subarray(1, 4).toString(), "PNG", path);
+    assert.equal(png.readUInt32BE(16), Number(size), `${path} width`);
+    assert.equal(png.readUInt32BE(20), Number(size), `${path} height`);
+  }
+  for (const path of Object.values(manifest.action.default_icon)) assert.ok(Object.values(manifest.icons).includes(path), path);
+});
