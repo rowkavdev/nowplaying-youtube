@@ -4,14 +4,19 @@
 (function () {
   async function checkPairing({ token, port = 47832, fetchImpl = fetch } = {}) {
     let response;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
     try {
       response = await fetchImpl(`http://127.0.0.1:${Number(port) || 47832}/bridge/youtube`, {
+        signal: controller.signal,
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ tabId: "pairing-check", state: "stopped" }),
       });
     } catch {
       return "app_not_running";
+    } finally {
+      clearTimeout(timeout);
     }
     if (response.status === 204) return "paired";
     if (response.status === 401) return "wrong_code";

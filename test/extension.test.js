@@ -69,7 +69,7 @@ test("events the extension builds only use keys the app's bridge accepts", () =>
 });
 
 test("pairing check tells a working code from a wrong one (#136)", async () => {
-  const ctx = vm.createContext({ URL, JSON });
+  const ctx = vm.createContext({ URL, JSON, AbortController, setTimeout, clearTimeout });
   vm.runInContext(readFileSync(new URL("pairing.js", dir), "utf8"), ctx);
   const { checkPairing } = ctx.NowPlayingPairing;
   const sent = [];
@@ -189,4 +189,18 @@ test('a hung bridge request times out so later tab events still send (#24)', asy
   removed(7);
   await new Promise(resolve => setTimeout(resolve, 100));
   assert.deepEqual(sends, ['playing', 'stopped']);
+});
+
+test('pairing check times out when the app never answers (#27)', async () => {
+  let abort;
+  const cleared = [];
+  const ctx = vm.createContext({ AbortController, setTimeout: fn => { abort = fn; return 1; }, clearTimeout: id => cleared.push(id) });
+  vm.runInContext(readFileSync(new URL('pairing.js', dir), 'utf8'), ctx);
+  const checking = ctx.NowPlayingPairing.checkPairing({
+    token: 't'.repeat(40),
+    fetchImpl: (_url, options) => new Promise((_resolve, reject) => options.signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true })),
+  });
+  abort();
+  assert.equal(await checking, 'app_not_running');
+  assert.deepEqual(cleared, [1]);
 });
