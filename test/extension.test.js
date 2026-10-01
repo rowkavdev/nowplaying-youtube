@@ -90,6 +90,7 @@ test('background warns on bridge rejection without logging token or playback', a
     chrome: { runtime: { onMessage: { addListener(fn) { listener = fn; } } }, storage: { local: { get: async () => ({ token: 'private-pairing-token', port: 47832 }) } } },
     fetch: async () => ({ ok: false, status: 400 }),
     console: { warn: (...args) => warnings.push(args) },
+    AbortController, setTimeout, clearTimeout,
   };
   vm.runInNewContext(readFileSync(new URL('../extension/background.js', import.meta.url), 'utf8'), context);
   listener({ type: 'nowplaying-youtube', event: { state: 'playing', title: 'Private title' } }, { tab: { id: 1 } });
@@ -129,6 +130,7 @@ test('per-tab forwarding keeps a late old play ahead of close, never revives aft
   vm.runInNewContext(readFileSync(new URL('background.js', dir), 'utf8'), {
     chrome: { runtime: { onMessage: { addListener: fn => { message = fn; } } }, tabs: { onRemoved: { addListener: fn => { removed = fn; } } }, storage: { local: { get: () => new Promise(resolve => reads.push(resolve)) } } },
     fetch: async (_url, options) => { sends.push(JSON.parse(options.body)); return { ok: true }; }, console,
+    AbortController, setTimeout, clearTimeout,
   });
   message({ type: 'nowplaying-youtube', event: { state: 'playing' } }, { tab: { id: 7 } }); removed(7);
   await new Promise(resolve => setImmediate(resolve));
@@ -165,4 +167,29 @@ test('unloaded media metadata is not reported as a live stream', () => {
   assert.equal(event.positionMs, null);
   const live = readPlayback(...page({ duration: Infinity }));
   assert.equal(live.live, true);
+});
+
+test('a hung bridge request times out so later events for the tab still go out (#24)', async () => {
+  let message, removed;
+  const sends = [], timers = [];
+  vm.runInNewContext(readFileSync(new URL('background.js', dir), 'utf8'), {
+    chrome: { runtime: { onMessage: { addListener: fn => { message = fn; } } }, tabs: { onRemoved: { addListener: fn => { removed = fn; } } }, storage: { local: { get: async () => ({ token: 't' }) } } },
+    fetch: (_url, options) => new Promise((resolve, reject) => {
+      sends.push(JSON.parse(options.body));
+      if (sends.length === 1) options.signal.addEventListener('abort', () => reject(new Error('aborted')));
+      else resolve({ ok: true });
+    }),
+    AbortController,
+    setTimeout: fn => { timers.push(fn); return timers.length; },
+    clearTimeout: () => {},
+    console,
+  });
+  message({ type: 'nowplaying-youtube', event: { state: 'playing' } }, { tab: { id: 7 } });
+  removed(7);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(sends.length, 1, 'the second event waits behind the hung request');
+  timers[0]();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(sends.length, 2);
+  assert.equal(sends.at(-1).state, 'stopped');
 });
