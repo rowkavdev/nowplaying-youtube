@@ -17,17 +17,27 @@ function forward(event) {
   return next;
 }
 
+const BRIDGE_TIMEOUT_MS = 5000;
+
 async function send(event) {
   const { token, port } = await chrome.storage.local.get(["token", "port"]);
   if (!token) return;
+  // A local app that accepts the connection and never answers would leave
+  // this promise pending forever, and every later event for the tab queues
+  // behind it. The deadline releases the queue and keeps event order (#24).
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), BRIDGE_TIMEOUT_MS);
   try {
     const response = await fetch(`http://127.0.0.1:${Number(port) || 47832}/bridge/youtube`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify(event),
+      signal: controller.signal,
     });
     if (!response.ok) console.warn("NowPlaying bridge rejected playback event:", response.status);
   } catch {
-    // App not running: nothing to do, the next tick tries again.
+    // App not running or timed out: nothing to do, the next tick tries again.
+  } finally {
+    clearTimeout(timer);
   }
 }
