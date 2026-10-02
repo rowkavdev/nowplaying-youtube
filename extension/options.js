@@ -24,7 +24,8 @@ form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const own = ++generation;
   const token = form.token.value.trim();
-  const port = Number(form.port.value.trim() || 47832);
+  const rawPort = form.port.value.trim() || "47832";
+  const port = /^[0-9]{1,5}$/.test(rawPort) ? Number(rawPort) : NaN;
   if (token.length < 32) return show("That code is too short. Copy it again from the NowPlaying settings page.", false);
   if (!Number.isInteger(port) || port < 1 || port > 65535) return show("That port isn't valid. Use a number from 1 to 65535; NowPlaying shows its port on the settings page.", false);
   show("Checking…", false);
