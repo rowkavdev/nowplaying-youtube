@@ -228,7 +228,7 @@ test("PRIVACY.md names every field the extension sends", () => {
 });
 
 test('an out-of-range or non-numeric port is refused, not saved', async () => {
-  for (const bad of ['99999', '0', '00', '65536', '1.5', 'abc']) {
+  for (const bad of ['99999', '0', '00', '65536', '1.5', 'abc', '1e2', '0x50', '+8080']) {
     const handlers = {}; let stored = null, checked = false;
     const form = { token: { value: 't'.repeat(40) }, port: { value: bad }, addEventListener: (kind, fn) => { handlers[kind] = fn; } }, status = {};
     vm.runInNewContext(readFileSync(new URL('options.js', dir), 'utf8'), { document: { getElementById: id => id === 'pair' ? form : id === 'status' ? status : { addEventListener: (_kind, fn) => { handlers.forget = fn; } } }, chrome: { storage: { local: { get: async () => ({}), set: async value => { stored = value; }, remove: async () => {} } } }, NowPlayingPairing: { checkPairing: async () => { checked = true; return 'paired'; } } });
