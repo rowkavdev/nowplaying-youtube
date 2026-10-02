@@ -226,3 +226,16 @@ test("PRIVACY.md names every field the extension sends", () => {
   const manifest = JSON.parse(readFileSync(new URL("manifest.json", dir), "utf8"));
   for (const permission of [...manifest.permissions, ...manifest.host_permissions]) assert.ok(privacy.includes(permission), permission);
 });
+
+test('an out-of-range or non-numeric port is refused, not saved', async () => {
+  for (const bad of ['99999', '0', '00', '65536', '1.5', 'abc']) {
+    const handlers = {}; let stored = null, checked = false;
+    const form = { token: { value: 't'.repeat(40) }, port: { value: bad }, addEventListener: (kind, fn) => { handlers[kind] = fn; } }, status = {};
+    vm.runInNewContext(readFileSync(new URL('options.js', dir), 'utf8'), { document: { getElementById: id => id === 'pair' ? form : id === 'status' ? status : { addEventListener: (_kind, fn) => { handlers.forget = fn; } } }, chrome: { storage: { local: { get: async () => ({}), set: async value => { stored = value; }, remove: async () => {} } } }, NowPlayingPairing: { checkPairing: async () => { checked = true; return 'paired'; } } });
+    await new Promise(resolve => setImmediate(resolve));
+    await handlers.submit({ preventDefault() {} });
+    assert.equal(stored, null, `port ${bad} must not be saved`);
+    assert.equal(checked, false);
+    assert.match(status.textContent, /isn't valid/);
+  }
+});
