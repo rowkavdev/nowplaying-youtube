@@ -24,7 +24,7 @@ It does not read or send page visits, searches, recommendations, watch history, 
 
 ## What it stores
 
-The pairing code and port, in the browser's local extension storage on your computer. Unpair on the options page removes them.
+The pairing code and port, in the browser's local extension storage on your computer. Unpair on the options page removes the pairing code and keeps the port, so pairing again doesn't need it re-entered. Removing the extension clears both.
 
 ## Permissions
 
