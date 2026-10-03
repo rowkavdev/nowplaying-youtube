@@ -41,13 +41,15 @@
     const title = (metadata?.title || "").trim();
     if (!title) return null;
     const live = Boolean(doc.querySelector(SELECTORS.liveBadge)?.offsetParent) || video.duration === Infinity;
+    const durationMs = playbackMs(video.duration, live);
     return {
       videoId,
       title: title.slice(0, 300),
       channel: (metadata?.artist || "").trim().slice(0, 200) || null,
       thumbnail: largestArtwork(metadata),
-      positionMs: playbackMs(video.currentTime, live),
-      durationMs: playbackMs(video.duration, live),
+      // Until the length is known (resume, seek, still loading) send neither.
+      positionMs: video.duration > 0 || live ? playbackMs(video.currentTime, live) : null,
+      durationMs: durationMs >= 1 ? durationMs : null,
       state: video.paused ? "paused" : "playing",
       live,
       music: location.hostname === "music.youtube.com",
