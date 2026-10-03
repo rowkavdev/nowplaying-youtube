@@ -3,10 +3,18 @@
 // until the extension is paired.
 chrome.runtime.onMessage.addListener((message, sender) => {
   if (message?.type !== "nowplaying-youtube" || !sender.tab?.id) return;
+  reporting.add(sender.tab.id);
   forward({ ...message.event, tabId: `t${sender.tab.id}` });
 });
 
-chrome.tabs?.onRemoved?.addListener((tabId) => forward({ tabId: `t${tabId}`, state: "stopped" }));
+// Only tabs that have sent a playback event get a "stopped" when they close.
+// Closing any other tab says nothing to the app. The set rebuilds itself within
+// ten seconds of a worker restart, because open YouTube tabs report every 10 s.
+const reporting = new Set();
+chrome.tabs?.onRemoved?.addListener((tabId) => {
+  if (!reporting.delete(tabId)) return;
+  forward({ tabId: `t${tabId}`, state: "stopped" });
+});
 
 const tabQueues = new Map();
 function forward(event) {
