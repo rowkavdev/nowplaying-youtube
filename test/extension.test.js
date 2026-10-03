@@ -248,3 +248,19 @@ test("a player that has not loaded its length yet sends no duration or position"
     assert.equal(e.live, false);
   }
 });
+
+test('closing a tab that never reported playback sends nothing to the app', async () => {
+  let message, removed;
+  const sends = [];
+  vm.runInNewContext(readFileSync(new URL('background.js', dir), 'utf8'), {
+    chrome: { runtime: { onMessage: { addListener: fn => { message = fn; } } }, tabs: { onRemoved: { addListener: fn => { removed = fn; } } }, storage: { local: { get: async () => ({ token: 't' }) } } },
+    fetch: async (_url, options) => { sends.push(JSON.parse(options.body)); return { ok: true }; },
+    console, AbortController, setTimeout, clearTimeout,
+  });
+  removed(3);
+  message({ type: 'nowplaying-youtube', event: { state: 'playing' } }, { tab: { id: 7 } });
+  removed(7);
+  removed(7);
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.deepEqual(sends.map(event => [event.tabId, event.state]), [['t7', 'playing'], ['t7', 'stopped']]);
+});
