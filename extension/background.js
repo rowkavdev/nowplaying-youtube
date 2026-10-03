@@ -3,7 +3,8 @@
 // until the extension is paired.
 chrome.runtime.onMessage.addListener((message, sender) => {
   if (message?.type !== "nowplaying-youtube" || !sender.tab?.id) return;
-  reporting.add(sender.tab.id);
+  if (message.event?.state === "stopped") reporting.delete(sender.tab.id);
+  else reporting.add(sender.tab.id);
   forward({ ...message.event, tabId: `t${sender.tab.id}` });
 });
 

@@ -264,3 +264,18 @@ test('closing a tab that never reported playback sends nothing to the app', asyn
   await new Promise(resolve => setTimeout(resolve, 20));
   assert.deepEqual(sends.map(event => [event.tabId, event.state]), [['t7', 'playing'], ['t7', 'stopped']]);
 });
+
+test('a tab that already reported stopped does not send a second stopped when it closes', async () => {
+  let message, removed;
+  const sends = [];
+  vm.runInNewContext(readFileSync(new URL('background.js', dir), 'utf8'), {
+    chrome: { runtime: { onMessage: { addListener: fn => { message = fn; } } }, tabs: { onRemoved: { addListener: fn => { removed = fn; } } }, storage: { local: { get: async () => ({ token: 't' }) } } },
+    fetch: async (_url, options) => { sends.push(JSON.parse(options.body)); return { ok: true }; },
+    console, AbortController, setTimeout, clearTimeout,
+  });
+  message({ type: 'nowplaying-youtube', event: { state: 'playing' } }, { tab: { id: 7 } });
+  message({ type: 'nowplaying-youtube', event: { state: 'stopped' } }, { tab: { id: 7 } });
+  removed(7);
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.deepEqual(sends.map(event => event.state), ['playing', 'stopped']);
+});
