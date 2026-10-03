@@ -239,3 +239,12 @@ test('an out-of-range or non-numeric port is refused, not saved', async () => {
     assert.match(status.textContent, /isn't valid/);
   }
 });
+
+test("a player that has not loaded its length yet sends no duration or position", () => {
+  for (const [duration, currentTime] of [[0, 0], [0, 5], [NaN, 5]]) {
+    const e = readPlayback(...page({ duration, currentTime }));
+    assert.equal(e.durationMs, null);
+    assert.equal(e.positionMs, null);
+    assert.equal(e.live, false);
+  }
+});
