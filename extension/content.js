@@ -6,7 +6,10 @@
   let last = null;
 
   function send(event) {
-    try { chrome.runtime.sendMessage({ type: "nowplaying-youtube", event }); } catch { /* extension reloaded */ }
+    try {
+      const pending = chrome.runtime.sendMessage({ type: "nowplaying-youtube", event });
+      pending?.catch(() => { /* extension reloaded or worker unavailable */ });
+    } catch { /* extension reloaded */ }
   }
 
   function report() {
