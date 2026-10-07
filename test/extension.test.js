@@ -279,3 +279,36 @@ test('a tab that already reported stopped does not send a second stopped when it
   await new Promise(resolve => setTimeout(resolve, 20));
   assert.deepEqual(sends.map(event => event.state), ['playing', 'stopped']);
 });
+
+test('storage failures show an error and a later save or unpair can retry', async () => {
+  const handlers = {};
+  const form = { token: { value: 't'.repeat(40) }, port: { value: '47832' }, addEventListener: (kind, fn) => { handlers[kind] = fn; } };
+  const status = {};
+  let fail = true, stored = null;
+  vm.runInNewContext(readFileSync(new URL('options.js', dir), 'utf8'), {
+    document: { getElementById: id => id === 'pair' ? form : id === 'status' ? status : { addEventListener: (_kind, fn) => { handlers.forget = fn; } } },
+    chrome: { storage: { local: {
+      get: async () => ({}),
+      set: async value => { if (fail) throw new Error('storage unavailable'); stored = value; },
+      remove: async () => { if (fail) throw new Error('storage unavailable'); stored = null; },
+    } } },
+    NowPlayingPairing: { checkPairing: async () => 'paired' },
+  });
+  await new Promise(resolve => setImmediate(resolve));
+  await assert.doesNotReject(handlers.submit({ preventDefault() {} }));
+  assert.match(status.textContent, /Couldn't save/);
+  assert.equal(form.token.value, 't'.repeat(40));
+  assert.equal(stored, null);
+  fail = false;
+  await handlers.submit({ preventDefault() {} });
+  assert.equal(status.textContent, 'Paired.');
+  assert.ok(stored);
+  fail = true;
+  await assert.doesNotReject(handlers.forget());
+  assert.match(status.textContent, /Couldn't unpair/);
+  assert.ok(stored);
+  fail = false;
+  await handlers.forget();
+  assert.equal(status.textContent, 'Unpaired. Nothing is sent now.');
+  assert.equal(stored, null);
+});

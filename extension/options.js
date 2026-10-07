@@ -32,7 +32,12 @@ form.addEventListener("submit", async (event) => {
   const result = await globalThis.NowPlayingPairing.checkPairing({ token, port });
   if (own !== generation) return;
   if (result === "wrong_code") return show("NowPlaying didn't accept that code. Copy it again from the settings page; it changes if you reset it.", false);
-  await write(async () => { if (own === generation) await chrome.storage.local.set({ token, port }); });
+  try {
+    await write(async () => { if (own === generation) await chrome.storage.local.set({ token, port }); });
+  } catch {
+    if (own === generation) show("Couldn't save the pairing code. Try again.", false);
+    return;
+  }
   if (own !== generation) return;
   form.token.value = "";
   if (result === "paired") return show("Paired.", true);
@@ -43,7 +48,12 @@ form.addEventListener("submit", async (event) => {
 
 document.getElementById("forget").addEventListener("click", async () => {
   const own = ++generation;
-  await write(() => chrome.storage.local.remove(["token"]));
+  try {
+    await write(() => chrome.storage.local.remove(["token"]));
+  } catch {
+    if (own === generation) show("Couldn't unpair. The code is still saved. Try again.", false);
+    return;
+  }
   if (own !== generation) return;
   show("Unpaired. Nothing is sent now.", false);
 });
