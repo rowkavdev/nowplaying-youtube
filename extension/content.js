@@ -4,19 +4,23 @@
 (function () {
   const reader = globalThis.NowPlayingReader;
   let last = null;
+  let sequence = 0;
 
-  function send(event) {
+  function send(event, onFailure) {
+    const own = ++sequence;
+    const failed = () => { if (own === sequence) onFailure?.(); };
     try {
       const pending = chrome.runtime.sendMessage({ type: "nowplaying-youtube", event });
-      pending?.catch(() => { /* extension reloaded or worker unavailable */ });
-    } catch { /* extension reloaded */ }
+      pending?.catch(failed);
+    } catch { failed(); }
   }
 
   function report() {
     const found = reader.readPlayback(document, location, navigator.mediaSession);
     if (!found || found.skip) {
-      if (last && last !== "stopped") send({ state: "stopped" });
+      const needsStop = last && last !== "stopped";
       last = "stopped";
+      if (needsStop) send({ state: "stopped" }, () => { last = "retry-stop"; });
       return;
     }
     // Paused tabs need the same heartbeat to stay alive at the bridge.
