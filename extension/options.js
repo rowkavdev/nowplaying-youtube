@@ -14,11 +14,20 @@ function show(text, ok) {
   status.className = ok ? "ok" : "";
 }
 
-chrome.storage.local.get(["token", "port"]).then(({ token, port }) => {
+async function loadSaved() {
+  let saved;
+  try {
+    saved = await chrome.storage.local.get(["token", "port"]);
+  } catch {
+    if (generation === 0) show("Couldn't load the saved pairing settings. Try reopening this page.", false);
+    return;
+  }
   if (generation !== 0) return;
+  const { token, port } = saved ?? {};
   if (port) form.port.value = port;
   show(token ? "Paired." : "Not paired yet.", Boolean(token));
-});
+}
+loadSaved();
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();

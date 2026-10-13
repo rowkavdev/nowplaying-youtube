@@ -312,3 +312,62 @@ test('storage failures show an error and a later save or unpair can retry', asyn
   assert.equal(status.textContent, 'Unpaired. Nothing is sent now.');
   assert.equal(stored, null);
 });
+
+function loadOptions(get, checkPairing = async () => 'paired') {
+  const handlers = {};
+  const form = { token: { value: 't'.repeat(40) }, port: { value: '47832' }, addEventListener: (kind, fn) => { handlers[kind] = fn; } };
+  const status = {};
+  vm.runInNewContext(readFileSync(new URL('options.js', dir), 'utf8'), {
+    document: { getElementById: id => id === 'pair' ? form : id === 'status' ? status : { addEventListener: (_kind, fn) => { handlers.forget = fn; } } },
+    chrome: { storage: { local: { get, set: async () => {}, remove: async () => {} } } },
+    NowPlayingPairing: { checkPairing },
+  });
+  return { handlers, status };
+}
+
+async function settleAndCollectRejections(run) {
+  const seen = [];
+  const listener = reason => seen.push(reason);
+  process.on('unhandledRejection', listener);
+  try {
+    await run();
+    await new Promise(resolve => setImmediate(resolve));
+    await new Promise(resolve => setImmediate(resolve));
+  } finally {
+    process.off('unhandledRejection', listener);
+  }
+  return seen;
+}
+
+test('an initial saved-settings read failure is shown, not left as an unhandled rejection', async () => {
+  let page;
+  const seen = await settleAndCollectRejections(async () => {
+    page = loadOptions(async () => { throw new Error('storage unavailable'); });
+  });
+  assert.deepEqual(seen, []);
+  assert.match(page.status.textContent, /Couldn't load/);
+});
+
+test('a synchronously throwing initial read is shown and does not break the page', async () => {
+  let page;
+  const seen = await settleAndCollectRejections(async () => {
+    page = loadOptions(() => { throw new Error('storage unavailable'); });
+  });
+  assert.deepEqual(seen, []);
+  assert.match(page.status.textContent, /Couldn't load/);
+  assert.equal(typeof page.handlers.submit, 'function');
+});
+
+test('a late initial read failure cannot replace a successful Save', async () => {
+  let rejectRead;
+  const read = new Promise((_resolve, reject) => { rejectRead = reject; });
+  let page;
+  const seen = await settleAndCollectRejections(async () => {
+    page = loadOptions(() => read);
+    await page.handlers.submit({ preventDefault() {} });
+    assert.equal(page.status.textContent, 'Paired.');
+    rejectRead(new Error('storage unavailable'));
+  });
+  assert.deepEqual(seen, []);
+  assert.equal(page.status.textContent, 'Paired.');
+});
