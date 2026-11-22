@@ -4,7 +4,8 @@
 // searches, recommendations or other tabs.
 (function (root) {
   const SELECTORS = {
-    video: "video.html5-main-video, video",
+    mainVideo: "video.html5-main-video",
+    video: "video",
     player: "#movie_player",
     adClass: "ad-showing",
     liveBadge: ".ytp-live-badge",
@@ -31,7 +32,7 @@
   // Returns the event to send, or null when there's nothing to report.
   function readPlayback(doc, location, mediaSession) {
     if (location.pathname.startsWith("/shorts/")) return { skip: "shorts" };
-    const video = doc.querySelector(SELECTORS.video);
+    const video = doc.querySelector(SELECTORS.mainVideo) ?? doc.querySelector(SELECTORS.video);
     const videoId = videoIdFrom(location);
     if (!video || !videoId) return null;
     if (video.ended) return { state: "stopped" };

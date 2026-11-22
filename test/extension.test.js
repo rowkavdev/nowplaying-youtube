@@ -371,3 +371,20 @@ test('a late initial read failure cannot replace a successful Save', async () =>
   assert.deepEqual(seen, []);
   assert.equal(page.status.textContent, 'Paired.');
 });
+
+test("the main player takes precedence over earlier auxiliary videos", () => {
+  const [doc, location, mediaSession] = page();
+  const primary = doc.querySelector("video");
+  const auxiliary = { paused: true, ended: true, duration: 5, currentTime: 5 };
+  const select = doc.querySelector;
+  doc.querySelector = (selector) => {
+    if (selector === "video.html5-main-video") return primary;
+    if (selector === "video" || selector === "video.html5-main-video, video") return auxiliary;
+    return select(selector);
+  };
+
+  assert.equal(readPlayback(doc, location, mediaSession).state, "playing");
+
+  doc.querySelector = (selector) => selector === "video.html5-main-video" ? null : select(selector);
+  assert.equal(readPlayback(doc, location, mediaSession).state, "playing");
+});
