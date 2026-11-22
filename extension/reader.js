@@ -29,10 +29,14 @@
     return Math.max(0, Math.round(seconds * 1000));
   }
 
+  function playerVideo(doc) {
+    return doc.querySelector(SELECTORS.mainVideo) ?? doc.querySelector(SELECTORS.video);
+  }
+
   // Returns the event to send, or null when there's nothing to report.
   function readPlayback(doc, location, mediaSession) {
     if (location.pathname.startsWith("/shorts/")) return { skip: "shorts" };
-    const video = doc.querySelector(SELECTORS.mainVideo) ?? doc.querySelector(SELECTORS.video);
+    const video = playerVideo(doc);
     const videoId = videoIdFrom(location);
     if (!video || !videoId) return null;
     if (video.ended) return { state: "stopped" };
